@@ -529,20 +529,15 @@ public:
 		}//measure Exposure
 
 
+		//delete the luminance1 and luminance 2
+		delete [] luma1;
+		delete [] luma2;
+
 		// apply the strength dials
 		//the total of all strength dials cannot exceed 1, the 3-way weber function resolves this issue by automatically adjusting all dials
 		// so that the totals do not exceed 1.   If you take 1 strength dial and force it to 1, then it will dial back to .9 and the other two will be .1
 		// if any two dials are set the exact same, one will adjust .01 and the other will adjust -.01, so that none of the dials are the exact same
 		// this next routine will multiply the current pixel value against the strenght dials, so that the total sum of all pixel do not exceed 1.0
-
-		/*
-		char sBuffer6[400];
-		float totalValue = contrast + saturation + exposure;
-
-		sprintf(sBuffer6,"contrast = %f\n saturation = %f\n Exposure = %f\n\n totalValue = %f"
-			             ,contrast,       saturation,       exposure,         totalValue);
-		MessageBox(NULL,sBuffer6,"Dial Values", MB_OK);*/
-
 		for (int x = 0; x < nWidth; x++)
 		{
 			for (int y = 0; y < nHeight; y++)
@@ -569,10 +564,21 @@ public:
 			}
 		}
 
+		
 
 
-					
-		// Alpha Mask test			
+/*
+		char sBuffer6[400];
+		float totalValue = contrast + saturation + exposure;
+
+		sprintf(sBuffer6,"contrast = %f\n saturation = %f\n Exposure = %f\n\n totalValue = %f"
+			             ,contrast,       saturation,       exposure,         totalValue);
+		MessageBox(NULL,sBuffer6,"Dial Values", MB_OK);
+*/
+
+
+// Alpha Mask test	
+/*				
 		for (int x = 0; x < nWidth; x++)
 		{
 			for (int y = 0; y < nHeight; y++)
@@ -631,46 +637,107 @@ public:
 					}
 				}
 
-				pBGRA_out[nIdx + CHANNEL_R] = CLAMP255(enhancedRed * colorDepth);
-				pBGRA_out[nIdx + CHANNEL_G] = CLAMP255(enhancedGreen * colorDepth);
-				pBGRA_out[nIdx + CHANNEL_B] = CLAMP255(enhancedBlue * colorDepth);
+			//	pBGRA_out[nIdx + CHANNEL_R] = CLAMP255(enhancedRed * colorDepth);
+			//	pBGRA_out[nIdx + CHANNEL_G] = CLAMP255(enhancedGreen * colorDepth);
+			//	pBGRA_out[nIdx + CHANNEL_B] = CLAMP255(enhancedBlue * colorDepth);
 			}
 		}
+*/
 
-
-		delete [] inputImage1;
-		delete [] inputImage2;
+		
 
 
 		float* outputImage=new float[nWidth * nHeight * 4];
 		initalizeArrayNeutralGrey(outputImage, nWidth, nHeight);
 
 
-		delete [] fusionImage1;
-		delete [] fusionImage2;
-
-		//copyImage(saturatedImage, nWidth, nHeight, outputImage, nWidth, nHeight);
-		//copy image 1 to saturatedImage so we may have image data
+		//now that alpha masks are created and each layer is multiplied against strength, now the work
+		//begins on mixing the two images based on the strength of each alpha mask
+		//this is where the final mix happens
+		// fusionImage1 and fusionImage2 array are CSE
+		// meaning Contrast Saturation Exposure
 		for (int x = 0; x < nWidth; x++)		
 		{
 			for (int y = 0; y < nHeight; y++)
 			{
-				//int nIdx = x * 4 + y * 4 * nWidth;
+				int nIdx = x * 4 + y * 4 * nWidth;
 
-				//float red = saturatedImage[nIdx + CHANNEL_R];
-				//float green = saturatedImage[nIdx + CHANNEL_G];
-				//float blue = saturatedImage[nIdx + CHANNEL_B];
+				float outputRed = 0;
+				float outputGreen = 0;
+				float outputBlue = 0;
 
-				//outputImage[nIdx + CHANNEL_R] = red;
-				//outputImage[nIdx + CHANNEL_G] = green;
-				//outputImage[nIdx + CHANNEL_B] = blue;
+				float contrast1 = fusionImage1[nIdx + CHANNEL_R];//Contrast
+				float saturation1 = fusionImage1[nIdx + CHANNEL_G];//Saturation
+				float exposure1 = fusionImage1[nIdx + CHANNEL_B];//Exposure
+
+				float contrast2 = fusionImage2[nIdx + CHANNEL_R];//Contrast
+				float saturation2 = fusionImage2[nIdx + CHANNEL_G];//Saturation
+				float exposure2 = fusionImage2[nIdx + CHANNEL_B];//Exposure
+
+				float red1 = inputImage1[nIdx + CHANNEL_R];
+				float green1 = inputImage1[nIdx + CHANNEL_G];
+				float blue1 = inputImage1[nIdx + CHANNEL_B];
+
+				float red2 = inputImage2[nIdx + CHANNEL_R];
+				float green2 = inputImage2[nIdx + CHANNEL_G];
+				float blue2 = inputImage2[nIdx + CHANNEL_B];
+
+				float cse1 = contrast1 + saturation1 + exposure1;
+				float cse2 = contrast2 + saturation2 + exposure2;
+
+				if (cse1 > cse2)
+				{
+					outputRed = red1;
+					outputGreen = green1;
+					outputBlue = blue1;
+				}
+				if (cse2 > cse1)
+				{
+					outputRed = red2;
+					outputGreen = green2;
+					outputBlue = blue2;
+				}
+				if (cse2 = cse1)
+				{
+					outputRed = (red1 + red2) / 2.0;
+					outputGreen = (green1 + green2) / 2.0;
+					outputBlue = (blue1 + blue2) / 2.0;
+				}
+
+				outputImage[nIdx+CHANNEL_R] = outputRed;
+				outputImage[nIdx+CHANNEL_G] = outputGreen;
+				outputImage[nIdx+CHANNEL_B] = outputBlue;
+
+				/*
+				double enhancedred = enhancedimage[nIdx+CHANNEL_R];
+				double enhancedgreen = enhancedimage[nIdx+CHANNEL_G];
+				double enhancedblue = enhancedimage[nIdx+CHANNEL_B];
+
+				double originalred = pBGRA_in2[nIdx+CHANNEL_R];
+				double originalgreen = pBGRA_in2[nIdx+CHANNEL_G];
+				double originalblue = pBGRA_in2[nIdx+CHANNEL_B];
+
+				double red = enhancedred * strength / 100.0f + originalred * (100.0f - strength) / 100.0f;
+				double green = enhancedgreen * strength / 100.0f + originalgreen * (100.0f - strength) / 100.0f;
+				double blue = enhancedblue * strength / 100.0f + originalblue * (100.0f - strength) / 100.0f;
+
+				pBGRA_out[nIdx+CHANNEL_R] = CLAMP255(red);
+				pBGRA_out[nIdx+CHANNEL_G] = CLAMP255(green);
+				pBGRA_out[nIdx+CHANNEL_B] = CLAMP255(blue);
+				*/
 			}
 		}
 
+		delete [] inputImage1;
+		delete [] inputImage2;
 
-		//delete the luminance1 and luminance 2
-		delete [] luma1;
-		delete [] luma2;
+		delete [] fusionImage1;
+		delete [] fusionImage2;
+
+
+
+
+
 
 
 		// output
@@ -678,15 +745,15 @@ public:
 		{
 			for (int y = 0; y < nHeight; y++)
 			{				
-				//int nIdx = x * 4 + y * 4 * nWidth;
+				int nIdx = x * 4 + y * 4 * nWidth;
 				
-				//float enhancedRed = inputImage1[nIdx+CHANNEL_R] * colorDepth;
-				//float enhancedGreen = inputImage1[nIdx+CHANNEL_G] * colorDepth;
-				//float enhancedBlue = inputImage1[nIdx+CHANNEL_B] * colorDepth;
+				float enhancedRed = outputImage[nIdx+CHANNEL_R] * colorDepth;
+				float enhancedGreen = outputImage[nIdx+CHANNEL_G] * colorDepth;
+				float enhancedBlue = outputImage[nIdx+CHANNEL_B] * colorDepth;
 
-				//pBGRA_out[nIdx+CHANNEL_R] = CLAMP255(enhancedRed);
-				//pBGRA_out[nIdx+CHANNEL_G] = CLAMP255(enhancedGreen);
-				//pBGRA_out[nIdx+CHANNEL_B] = CLAMP255(enhancedBlue);
+				pBGRA_out[nIdx+CHANNEL_R] = CLAMP255(enhancedRed);
+				pBGRA_out[nIdx+CHANNEL_G] = CLAMP255(enhancedGreen);
+				pBGRA_out[nIdx+CHANNEL_B] = CLAMP255(enhancedBlue);
 			}
 		}
 		
