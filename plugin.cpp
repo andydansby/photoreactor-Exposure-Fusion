@@ -40,13 +40,13 @@
 
 #define PARAM_CONTRAST	0
 #define PARAM_SATURATION	1
-#define PARAM_LUMUNOSITY	2
+#define PARAM_EXPOSURE	2
 #define PARAM_SWITCH	3
 #define PARAM_CHANNEL	4
 
-#define PARAM_SIGMA 5
+//#define PARAM_SIGMA 5
 
-#define NUMBER_OF_USER_PARAMS 6
+#define NUMBER_OF_USER_PARAMS 5
 
 class PluginTest : public IPlugin	
 {
@@ -107,7 +107,7 @@ public:
 	// valid are between 50 and 100
 	int GetBoxWidth ()
 	{
-		return 90;
+		return 100;
 	}
 
 	// set the flags
@@ -137,7 +137,7 @@ public:
 
 		nFlag = nFlag | FLAG_HELPER;
 		//nFlag = nFlag | FLAG_LONGPROCESS;
-		nFlag = nFlag | FLAG_NEEDMOUSE;
+		//nFlag = nFlag | FLAG_NEEDMOUSE;
 
 		return nFlag;
 	}
@@ -154,23 +154,19 @@ public:
 		double contrastMax = 1.0;
 		double contrastMin = 0.0001;
 
-		double edgesMax = 1.0;
-		double edgesMin = 0.0001;
-
 		double saturationMax = 1.0;
 		double saturationMin = 0.0001;
 
 		double luminosityMax = 1.0;
 		double luminosityMin = 0.0001;
 
-		double contrastValue = 0.40;
-		double edgesValue = 0.25;
+		double contrastValue = 0.30;
 		double saturationValue = 0.20;
-		double luminosityValue = 0.15;
+		double luminosityValue = 0.60;
 
 		AddParameter( PARAM_CONTRAST ,"Contrast", contrastValue, contrastMin, contrastMax, TYPE_SLIDER, 0.0);
 		AddParameter( PARAM_SATURATION ,"Saturation", saturationValue, saturationMin, saturationMax, TYPE_SLIDER, 0.0);
-		AddParameter( PARAM_LUMUNOSITY ,"Luminosity", luminosityValue, luminosityMin, luminosityMax, TYPE_SLIDER, 0.0);
+		AddParameter( PARAM_EXPOSURE ,"Exposure", luminosityValue, luminosityMin, luminosityMax, TYPE_SLIDER, 0.0);
 	//	AddParameter( PARAM_SIGMA , "Sigma", .10, -1.0, 1.0, TYPE_SLIDER, 0.0);//AddParameter( PARAM_SIGMA , "Sigma", .2, .01, 1.0, TYPE_SLIDER, 0.0);
 	//	AddParameter( PARAM_THETA , "Theta", .5, -1.0, 1.0, TYPE_SLIDER, 0.0);
 
@@ -209,9 +205,7 @@ public:
 	// the pBGRA_out comes already with copied data from pBGRA_in1
 	virtual void Process_Data2 (BYTE* pBGRA_out, BYTE* pBGRA_in1, BYTE* pBGRA_in2, int nWidth, int nHeight, UIParameters* pParameters)
 	{
-		char sBuffer6[400];
-
-
+		
 		//http://photo.stackexchange.com/questions/20896/how-does-exposure-fusion-work
 		//https://github.com/Mericam/exposure-fusion/blob/master/exposure_fusion.m
 		//http://onehourofdevelopment.blogspot.com/2013/04/hdr-exposure-fusion-in-c.html
@@ -227,7 +221,7 @@ public:
 
 		double contrast = (double)GetValue(PARAM_CONTRAST);
 		double saturation = (double) GetValue(PARAM_SATURATION);
-		double luminosity = (double) GetValue(PARAM_LUMUNOSITY);
+		double exposure = (double) GetValue(PARAM_EXPOSURE);
 		
 		int topBottom = GetValue(PARAM_SWITCH);
 		int channel = GetValue(PARAM_CHANNEL);
@@ -236,11 +230,11 @@ public:
 		double* triValue=new double[4];		
 		triValue[0] = contrast;
 		triValue[1] = saturation;
-		triValue[2] = luminosity;
+		triValue[2] = exposure;
 		adjustTo1Weber3(triValue);
 		contrast = triValue[0];
 		saturation = triValue[1];
-		luminosity = triValue[2];
+		exposure = triValue[2];
 		delete [] triValue;
 		//this takes your 4 variables and adjust all of them so they maintain the ratios yet do not exceed 1
 
@@ -364,8 +358,6 @@ public:
 
 			//   ***IMPORTANT***
 			//   *** BUILD AN ALPHA MASK WITH THE RESULTS, place in Red Channel
-			//   ***IMPORTANT***
-			//create alpha mask
 			for (int x = 0; x < nWidth; x++)
 			{
 				for (int y = 0; y < nHeight; y++)
@@ -420,7 +412,6 @@ public:
 		//clean up memory
 		delete [] luminance1;
 		delete [] luminance2;
-		//clean up memory
 
 		// measure saturation  OUTPUT TO GREEN
 		{
@@ -431,7 +422,6 @@ public:
 
 			//   ***IMPORTANT***
 			//   *** BUILD AN ALPHA MASK WITH THE RESULTS, output to Green channel
-			//   ***IMPORTANT***
 			//create alpha mask
 			for (int x = 0; x < nWidth; x++)
 			{
@@ -447,45 +437,11 @@ public:
 				}
 			}
 
-			/*
-			// test
-			for (int x = 0; x < nWidth; x++)
-			{
-				for (int y = 0; y < nHeight; y++)
-				{				
-					int nIdx = x * 4 + y * 4 * nWidth;
-
-					float enhancedRed = 0;
-					float enhancedGreen = 0;
-					float enhancedBlue = 0;
-
-					if (topBottom == 0)
-					{
-						enhancedRed = fusionImage1[nIdx + CHANNEL_G];
-						enhancedGreen = fusionImage1[nIdx + CHANNEL_G];
-						enhancedBlue = fusionImage1[nIdx + CHANNEL_G];
-					}
-
-					if (topBottom == 1)
-					{
-						enhancedRed = fusionImage2[nIdx + CHANNEL_G];
-						enhancedGreen = fusionImage2[nIdx + CHANNEL_G];
-						enhancedBlue = fusionImage2[nIdx + CHANNEL_G];
-					}
-					pBGRA_out[nIdx + CHANNEL_R] = CLAMP255(enhancedRed * colorDepth);
-					pBGRA_out[nIdx + CHANNEL_G] = CLAMP255(enhancedGreen * colorDepth);
-					pBGRA_out[nIdx + CHANNEL_B] = CLAMP255(enhancedBlue * colorDepth);
-				}
-			}
-			*/
-
 			//convert images back to sRGB
 			HSVtoRGB(inputImage1,nWidth,nHeight);
 			HSVtoRGB(inputImage2,nWidth,nHeight);
-		}
+		}// end measure saturation
 
-		//float* exposure1=new float[nWidth * nHeight * 4];
-		//float* exposure2=new float[nWidth * nHeight * 4];
 
 		float* luma1 = new float[nWidth * nHeight * 4];
 		float* luma2 = new float[nWidth * nHeight * 4];
@@ -566,51 +522,57 @@ public:
 
 					//   ***IMPORTANT***
 					//   *** BUILD AN ALPHA MASK WITH THE RESULTS, output to Green channel
-					//   ***IMPORTANT***
-					//create alpha mask
 					fusionImage1 [nIdx + CHANNEL_B] = red11 * green11 * blue11;
 					fusionImage2 [nIdx + CHANNEL_B] = red22 * green22 * blue22;
-				}
-			}
+				}//end y
+			}//end x
+		}//measure Exposure
 
 
+		// apply the strength dials
+		//the total of all strength dials cannot exceed 1, the 3-way weber function resolves this issue by automatically adjusting all dials
+		// so that the totals do not exceed 1.   If you take 1 strength dial and force it to 1, then it will dial back to .9 and the other two will be .1
+		// if any two dials are set the exact same, one will adjust .01 and the other will adjust -.01, so that none of the dials are the exact same
+		// this next routine will multiply the current pixel value against the strenght dials, so that the total sum of all pixel do not exceed 1.0
 
-			
-			// test			
-			for (int x = 0; x < nWidth; x++)
+		/*
+		char sBuffer6[400];
+		float totalValue = contrast + saturation + exposure;
+
+		sprintf(sBuffer6,"contrast = %f\n saturation = %f\n Exposure = %f\n\n totalValue = %f"
+			             ,contrast,       saturation,       exposure,         totalValue);
+		MessageBox(NULL,sBuffer6,"Dial Values", MB_OK);*/
+
+		for (int x = 0; x < nWidth; x++)
+		{
+			for (int y = 0; y < nHeight; y++)
 			{
-				for (int y = 0; y < nHeight; y++)
-				{				
-					int nIdx = x * 4 + y * 4 * nWidth;
+				int nIdx = x * 4 + y * 4 * nWidth;
 
-					float enhancedRed = 0;
-					float enhancedGreen = 0;
-					float enhancedBlue = 0;
+				// Array is now CSE
+				// meaning Contrast Saturation Exposure
+				float cseContrast1 = fusionImage1[nIdx + CHANNEL_R] * contrast;
+				float cseSaturation1 = fusionImage1[nIdx + CHANNEL_G] * saturation;
+				float cseExposure1 = fusionImage1[nIdx + CHANNEL_B] * exposure;
 
-					if (topBottom == 0)
-					{
-						enhancedRed = fusionImage1[nIdx + CHANNEL_B];
-						enhancedGreen = fusionImage1[nIdx + CHANNEL_B];
-						enhancedBlue = fusionImage1[nIdx + CHANNEL_B];
-					}
+				float cseContrast2 = fusionImage2[nIdx + CHANNEL_R] * contrast;
+				float cseSaturation2 = fusionImage2[nIdx + CHANNEL_G] * saturation;
+				float cseExposure2 = fusionImage2[nIdx + CHANNEL_B] * exposure;
 
-					if (topBottom == 1)
-					{
-						enhancedRed = fusionImage2[nIdx + CHANNEL_B];
-						enhancedGreen = fusionImage2[nIdx + CHANNEL_B];
-						enhancedBlue = fusionImage2[nIdx + CHANNEL_B];
-					}
-					pBGRA_out[nIdx + CHANNEL_R] = CLAMP255(enhancedRed * colorDepth);
-					pBGRA_out[nIdx + CHANNEL_G] = CLAMP255(enhancedGreen * colorDepth);
-					pBGRA_out[nIdx + CHANNEL_B] = CLAMP255(enhancedBlue * colorDepth);
-				}
+				fusionImage1[nIdx + CHANNEL_R] = cseContrast1;
+				fusionImage1[nIdx + CHANNEL_G] = cseSaturation1;
+				fusionImage1[nIdx + CHANNEL_B] = cseExposure1;
+
+				fusionImage2[nIdx + CHANNEL_R] = cseContrast2;
+				fusionImage2[nIdx + CHANNEL_G] = cseSaturation2;
+				fusionImage2[nIdx + CHANNEL_B] = cseExposure2;
 			}
-			
-
 		}
 
+
+
 					
-		// test			
+		// Alpha Mask test			
 		for (int x = 0; x < nWidth; x++)
 		{
 			for (int y = 0; y < nHeight; y++)
@@ -674,8 +636,10 @@ public:
 				pBGRA_out[nIdx + CHANNEL_B] = CLAMP255(enhancedBlue * colorDepth);
 			}
 		}
-			
 
+
+		delete [] inputImage1;
+		delete [] inputImage2;
 
 
 		float* outputImage=new float[nWidth * nHeight * 4];
@@ -714,11 +678,11 @@ public:
 		{
 			for (int y = 0; y < nHeight; y++)
 			{				
-				int nIdx = x * 4 + y * 4 * nWidth;
+				//int nIdx = x * 4 + y * 4 * nWidth;
 				
-				float enhancedRed = inputImage1[nIdx+CHANNEL_R] * colorDepth;
-				float enhancedGreen = inputImage1[nIdx+CHANNEL_G] * colorDepth;
-				float enhancedBlue = inputImage1[nIdx+CHANNEL_B] * colorDepth;
+				//float enhancedRed = inputImage1[nIdx+CHANNEL_R] * colorDepth;
+				//float enhancedGreen = inputImage1[nIdx+CHANNEL_G] * colorDepth;
+				//float enhancedBlue = inputImage1[nIdx+CHANNEL_B] * colorDepth;
 
 				//pBGRA_out[nIdx+CHANNEL_R] = CLAMP255(enhancedRed);
 				//pBGRA_out[nIdx+CHANNEL_G] = CLAMP255(enhancedGreen);
@@ -728,8 +692,7 @@ public:
 		
 
 
-		delete [] inputImage1;
-		delete [] inputImage2;
+
 		delete [] outputImage;
 	}
 
@@ -781,17 +744,12 @@ public:
 	// It is only for helper objects that may not go to Process Data 
 	BOOL UIParametersChanged (UIParameters* pParameters, int nParameter)
 	{
-		/*char sBuffer6[400];
-		
-		sprintf(sBuffer6,"say what! \n\n pParameters = %f\n nParameter = %d",*pParameters,nParameter);MessageBox(NULL,sBuffer6,"whatup", MB_OK);*/
-
 		return FALSE;
 	}
 
 	// when button is pressed on UI, this function will be called with the parameter and sub button (for multi button line)
 	BOOL UIButtonPushed (int nParam, int nSubButton, UIParameters* pParameters)
 	{
-
 		return TRUE;
 	}
 
